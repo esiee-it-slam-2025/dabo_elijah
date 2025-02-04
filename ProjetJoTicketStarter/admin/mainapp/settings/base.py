@@ -15,7 +15,7 @@ INSTALLED_APPS = [
     # On explicite l"usage de notre application pour que les templates
     # soient détectés automatiquement par Django
     "corsheaders",
-    "mainapp.apps.MainappConfig",
+    "mainapp.apps.MainAppConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
