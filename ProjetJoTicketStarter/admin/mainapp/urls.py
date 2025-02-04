@@ -1,7 +1,6 @@
-from django.urls import path
-from .views import stadiums
+from django.contrib import admin
+from django.urls import path, include
 
-# Un exemple de endpoint qui renverait les stades... Si la vue était faite :)
-urlpatterns = (
-    path("api/stadiums", stadiums),
-)
+urlpatterns = [
+    path('admin/', admin.site.urls),  # Activation de l'interface admin
+]
