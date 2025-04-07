@@ -19,3 +19,10 @@ class Ticket(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.match} ({self.category})"
+
+class Stadium(models.Model):
+    name = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
