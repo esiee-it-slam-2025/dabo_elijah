@@ -3,7 +3,6 @@ https://docs.djangoproject.com/fr/3.2/topics/settings/
 """
 
 from pathlib import Path
-import os  # Import pour gérer les chemins de fichiers
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -11,18 +10,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Pensez à générer une nouvelle clé à l'aide de https://djecrety.ir/
 SECRET_KEY = "velicyjh0)jmde&@qj=_)hzik!&sw4ml8b92ni&!y@=cu(-hj8"
 
-DEBUG = True
 
 INSTALLED_APPS = [
-    "corsheaders",
-    "mainapp.apps.MainAppConfig",
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
+    'corsheaders',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'mainapp',
 ]
+
+ROOT_URLCONF = 'mainapp.urls'
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -62,12 +63,14 @@ TEMPLATES = [
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        # !!! A remplacer avec vos informations de connexion !!!
-        "NAME": "jo_project_starter",
+        'NAME': "jo_projet",
         "USER": "root",
         "PASSWORD": "",
         "HOST": "127.0.0.1",
         "PORT": "",
+        'OPTIONS': {
+            'sql_mode': 'STRICT_TRANS_TABLES',
+        }
     }
 }
 
@@ -89,6 +92,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
 # Internationalization
 # https://docs.djangoproject.com/fr/3.2/topics/i18n/
 
@@ -102,11 +106,11 @@ USE_L10N = True
 
 USE_TZ = True
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/fr/3.2/howto/static-files/
 
 STATIC_URL = "/static/"
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/fr/3.2/ref/settings/#default-auto-field
@@ -119,8 +123,6 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5500",  # Adresse URL local sur le port liveserver
 ]
-
 ALLOWED_HOSTS = [
-    "127.0.0.1",  # Pour les tests en local
-    "localhost",
+    '127.0.0.1',  # Pour les tests en local
 ]

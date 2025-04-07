@@ -1,5 +1,5 @@
 from django.apps import AppConfig
 
-class MainAppConfig(AppConfig):  # Vérifie le nom ici
-    default_auto_field = 'django.db.models.BigAutoField'
+class MainappConfig(AppConfig):
     name = 'mainapp'
+    verbose_name = "Main App"

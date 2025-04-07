@@ -1,7 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
@@ -9,10 +8,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from ..models import Stadium, Team, Event, Ticket
+from .models import Stadium, Team, Event, Ticket
 import json
-import uuid
-import traceback
 
 # Fonction utilitaire pour sérialiser un objet Stadium
 def serialize_stadium(stadium):
@@ -37,10 +34,9 @@ def serialize_event(event):
         'id': event.id,
         'start': event.start.isoformat(),
         'stadium': serialize_stadium(event.stadium),
-        'team_home': serialize_team(event.team_home) if event.team_home else None,
-        'team_away': serialize_team(event.team_away) if event.team_away else None,
+        'team_home': serialize_team(event.team_home),
+        'team_away': serialize_team(event.team_away),
     }
-
 # Fonction utilitaire pour sérialiser un objet User
 def serialize_user(user):
     return {
@@ -93,49 +89,32 @@ def events_list(request):
 # API: Inscription utilisateur
 @api_view(['POST'])
 @permission_classes([AllowAny])
-@csrf_exempt
 def register(request):
-    if request.method != 'POST':
-        return JsonResponse({'message': 'Méthode non autorisée'}, status=405)
-    
     try:
-        # Capturer le corps de la requête avant qu'il ne soit consommé
-        if hasattr(request, '_body'):
-            data = json.loads(request._body)
-        else:
-            data = json.loads(request.body.decode('utf-8'))
-        
+        data = json.loads(request.body)
         username = data.get('username')
         email = data.get('email')
         password = data.get('password')
         
-        # Validation
         if not username or not email or not password:
-            return JsonResponse({'message': 'Veuillez fournir tous les champs requis'}, status=400)
+            return Response({'message': 'Veuillez fournir tous les champs requis'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Vérifier si l'utilisateur existe déjà
         if User.objects.filter(username=username).exists():
-            return JsonResponse({'message': 'Ce nom d\'utilisateur est déjà pris'}, status=400)
+            return Response({'message': 'Ce nom d\'utilisateur est déjà pris'}, status=status.HTTP_400_BAD_REQUEST)
         
         if User.objects.filter(email=email).exists():
-            return JsonResponse({'message': 'Cet email est déjà utilisé'}, status=400)
+            return Response({'message': 'Cet email est déjà utilisé'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Créer l'utilisateur
         user = User.objects.create_user(username=username, email=email, password=password)
         
-        return JsonResponse({
+        login(request, user)
+        
+        return Response({
             'message': 'Inscription réussie',
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email
-            }
+            'user': serialize_user(user)
         })
     except Exception as e:
-        import traceback
-        print(f"Erreur d'inscription: {str(e)}")
-        print(traceback.format_exc())
-        return JsonResponse({'message': f'Erreur serveur: {str(e)}'}, status=500)
+        return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # API: Connexion utilisateur
 @api_view(['POST'])
@@ -165,8 +144,6 @@ def login_view(request):
         else:
             return Response({'message': 'Email ou mot de passe incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
-        print(f"Erreur de connexion: {str(e)}")
-        print(traceback.format_exc())
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # API: Déconnexion utilisateur
@@ -177,50 +154,26 @@ def logout_view(request):
     return Response({'message': 'Déconnexion réussie'})
 
 # API: Achat de billet
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 @transaction.atomic
 def buy_ticket(request):
-    if request.method != 'POST':
-        return JsonResponse({'message': 'Méthode non autorisée'}, status=405)
-    
     try:
-        # Ajouter un log pour voir la requête
-        print("Headers de la requête:", request.headers)
-        
-        # Capturer le corps de la requête avant qu'il ne soit consommé
-        if hasattr(request, '_body'):
-            data = json.loads(request._body)
-        else:
-            data = json.loads(request.body.decode('utf-8'))
-        
-        # Ajouter un log pour voir les données reçues
-        print("Données reçues:", data)
-        
+        data = json.loads(request.body)
         event_id = data.get('event_id')
         category = data.get('category', '').upper()
         quantity = int(data.get('quantity', 1))
-        user_id = data.get('user_id')
         
-        # Ajouter un log pour voir les variables extraites
-        print(f"event_id: {event_id}, category: {category}, quantity: {quantity}, user_id: {user_id}")
+        if not event_id or not category:
+            return Response({'message': 'Veuillez fournir l\'ID de l\'événement et la catégorie'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Vérifications
-        if not event_id or not category or not user_id:
-            print("Erreur: données manquantes")
-            return JsonResponse({'message': 'Veuillez fournir l\'ID de l\'événement, la catégorie et l\'ID utilisateur'}, status=400)
+        if category not in ['SILVER', 'GOLD', 'PLATINUM']:
+            return Response({'message': 'Catégorie invalide'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Récupérer l'utilisateur
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return JsonResponse({'message': 'Utilisateur non trouvé'}, status=404)
+        if quantity < 1 or quantity > 10:
+            return Response({'message': 'La quantité doit être comprise entre 1 et 10'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Récupérer l'événement
-        from ..models import Event, Ticket
-        try:
-            event = Event.objects.get(id=event_id)
-        except Event.DoesNotExist:
-            return JsonResponse({'message': 'Événement non trouvé'}, status=404)
+        event = get_object_or_404(Event, id=event_id)
         
         # Prix selon la catégorie
         price = {
@@ -233,52 +186,19 @@ def buy_ticket(request):
         
         for _ in range(quantity):
             ticket = Ticket.objects.create(
-                user=user,
+                user=request.user,
                 event=event,
                 category=category,
                 price=price
             )
-            tickets.append({
-                'id': str(ticket.id),
-                'user': {
-                    'id': user.id,
-                    'username': user.username,
-                    'email': user.email
-                },
-                'event': {
-                    'id': event.id,
-                    'start': event.start.isoformat(),
-                    'stadium': {
-                        'id': event.stadium.id,
-                        'name': event.stadium.name,
-                        'location': event.stadium.location
-                    },
-                    'team_home': {
-                        'id': event.team_home.id if event.team_home else None,
-                        'name': event.team_home.name if event.team_home else None,
-                        'code': event.team_home.code if event.team_home else None
-                    },
-                    'team_away': {
-                        'id': event.team_away.id if event.team_away else None,
-                        'name': event.team_away.name if event.team_away else None,
-                        'code': event.team_away.code if event.team_away else None
-                    }
-                },
-                'category': ticket.category,
-                'price': float(ticket.price),
-                'purchase_date': ticket.purchase_date.isoformat(),
-                'is_used': ticket.is_used
-            })
+            tickets.append(serialize_ticket(ticket))
         
-        return JsonResponse({
+        return Response({
             'message': f"{quantity} billet(s) acheté(s) avec succès",
             'tickets': tickets
         })
     except Exception as e:
-        import traceback
-        print(f"Erreur d'achat de billet: {str(e)}")
-        print(traceback.format_exc())
-        return JsonResponse({'message': f'Erreur serveur: {str(e)}'}, status=500)
+        return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # API: Liste des billets de l'utilisateur connecté
 @api_view(['GET'])
@@ -296,8 +216,6 @@ def get_ticket_info(request, ticket_id):
         ticket = get_object_or_404(Ticket, id=ticket_id)
         return Response(serialize_ticket(ticket))
     except Exception as e:
-        print(f"Erreur d'information sur le billet: {str(e)}")
-        print(traceback.format_exc())
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # API: Valider un billet (marquer comme utilisé)
@@ -318,6 +236,4 @@ def validate_ticket(request, ticket_id):
             'ticket': serialize_ticket(ticket)
         })
     except Exception as e:
-        print(f"Erreur de validation de billet: {str(e)}")
-        print(traceback.format_exc())
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
