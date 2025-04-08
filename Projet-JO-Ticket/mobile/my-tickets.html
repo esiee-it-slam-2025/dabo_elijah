@@ -111,6 +111,12 @@
         .download-button:hover {
             background-color: #45a049;
         }
+
+        .event-score {
+            font-weight: bold;
+            text-align: center;
+            margin-top: 0.5rem;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 </head>
@@ -194,6 +200,12 @@
                 Object.values(ticketsByEvent).forEach(group => {
                     const eventDate = new Date(group.event.start);
                     
+                    // Préparer l'affichage du score si disponible
+                    let scoreDisplay = '';
+                    if (group.event.score) {
+                        scoreDisplay = `<div class="event-score">Score: ${group.event.score}</div>`;
+                    }
+                    
                     const matchTicketsElement = document.createElement('div');
                     matchTicketsElement.className = 'match-tickets';
                     
@@ -214,6 +226,7 @@
                                     <div class="team-code">${group.event.team_away.code}</div>
                                 </div>
                             </div>
+                            ${scoreDisplay}
                             <div class="event-details">
                                 <div class="event-detail">
                                     <span class="detail-icon">⏰</span>
@@ -231,9 +244,10 @@
                                 const typeNumber = 0; // Auto-détection
                                 const errorCorrectionLevel = 'H'; // Haute correction d'erreur
                                 const qr = qrcode(typeNumber, errorCorrectionLevel);
-                                qr.addData(ticket.id);
+                                // Utiliser uniquement les 8 premiers caractères de l'UUID pour simplifier
+                                qr.addData(ticket.id.substring(0, 8));
                                 qr.make();
-                                const qrCodeSvg = qr.createSvgTag(5);
+                                const qrCodeSvg = qr.createSvgTag(10); // Taille plus grande pour meilleure lisibilité
                                 
                                 return `
                                     <div class="ticket-item">
@@ -266,56 +280,44 @@
         });
 
         // Fonction pour télécharger un QR code
-function downloadQRCode(event, ticketId) {
-    event.preventDefault();
-    
-    // Trouver le SVG du QR code
-    const ticketItem = event.target.closest('.ticket-item');
-    const qrCodeSvg = ticketItem.querySelector('svg');
-    
-    // Créer un élément canvas
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    
-    // Taille du canvas
-    canvas.width = 300;
-    canvas.height = 300;
-    
-    // Dessiner un fond blanc
-    context.fillStyle = 'white';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Convertir le SVG en image
-    const img = new Image();
-    img.onload = function() {
-        context.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Créer un lien de téléchargement
-        const link = document.createElement('a');
-        link.download = `ticket-${ticketId.substring(0, 8)}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-    };
-    
-    // Convertir le SVG en data URL
-    const svgData = new XMLSerializer().serializeToString(qrCodeSvg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-    img.src = url;
-}     
-            // Ajouter un texte informatif
-            ctx.font = 'bold 16px sans-serif';
-            ctx.fillStyle = 'black';
-            ctx.textAlign = 'center';
-            ctx.fillText(`Billet JO: ${ticketId.substring(0, 8)}...`, canvas.width / 2, canvas.height - 20);
+        function downloadQRCode(event, ticketId) {
+            event.preventDefault();
             
-            // Télécharger l'image
-            const link = document.createElement('a');
-            link.download = `ticket-${ticketId.substring(0, 8)}.png`;
-            link.href = canvas.toDataURL('image/png', 1.0);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Trouver le SVG du QR code
+            const ticketItem = event.target.closest('.ticket-item');
+            const qrCodeSvg = ticketItem.querySelector('svg');
+            
+            // Créer un élément canvas
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            // Taille du canvas - UNIQUEMENT pour le QR code
+            canvas.width = 300;
+            canvas.height = 300;
+            
+            // Dessiner un fond blanc
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Convertir le SVG en image
+            const img = new Image();
+            img.onload = function() {
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                
+                // Créer un lien de téléchargement
+                const link = document.createElement('a');
+                link.download = `ticket-${ticketId.substring(0, 8)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            };
+            
+            // Convertir le SVG en data URL
+            const svgData = new XMLSerializer().serializeToString(qrCodeSvg);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            img.src = url;
+        }
     </script>
 </body>
 </html>

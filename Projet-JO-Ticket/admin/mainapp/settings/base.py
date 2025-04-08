@@ -4,10 +4,8 @@ https://docs.djangoproject.com/fr/3.2/topics/settings/
 
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Pensez à générer une nouvelle clé à l'aide de https://djecrety.ir/
 SECRET_KEY = "velicyjh0)jmde&@qj=_)hzik!&sw4ml8b92ni&!y@=cu(-hj8"
 
 
@@ -58,7 +56,6 @@ TEMPLATES = [
 ]
 
 # Database
-# https://docs.djangoproject.com/fr/3.2/ref/settings/#databases
 
 DATABASES = {
     "default": {
@@ -75,7 +72,6 @@ DATABASES = {
 }
 
 # Password validation
-# https://docs.djangoproject.com/fr/3.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -94,7 +90,6 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # Internationalization
-# https://docs.djangoproject.com/fr/3.2/topics/i18n/
 
 LANGUAGE_CODE = "fr-fr"
 
@@ -108,12 +103,8 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/fr/3.2/howto/static-files/
 
 STATIC_URL = "/static/"
-
-# Default primary key field type
-# https://docs.djangoproject.com/fr/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -121,8 +112,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:5500",  # Adresse URL local sur le port liveserver
+    "http://127.0.0.1:5500",
 ]
 ALLOWED_HOSTS = [
-    '127.0.0.1',  # Pour les tests en local
+    '127.0.0.1',
 ]

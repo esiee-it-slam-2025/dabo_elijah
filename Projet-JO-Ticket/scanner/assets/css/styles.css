@@ -329,7 +329,44 @@ footer {
     margin-top: 3rem;
 }
 
-/* Animation de validation */
+/* Options de traitement d'image */
+.image-processing-options {
+    background-color: #f0f0f0;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.image-processing-options h4 {
+    margin-bottom: 15px;
+    text-align: center;
+    color: var(--primary-color);
+}
+
+.option-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.option-group label {
+    min-width: 150px;
+    font-weight: bold;
+}
+
+.slider {
+    margin: 0 10px;
+    flex-grow: 1;
+}
+
+#process-image-btn {
+    margin: 15px auto 5px;
+    display: block;
+}
+
+
 @keyframes ticketValidated {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
@@ -358,5 +395,14 @@ footer {
     .ticket-info-label {
         width: 100%;
         margin-bottom: 0.3rem;
+    }
+    
+    .option-group {
+        flex-wrap: wrap;
+    }
+    
+    .option-group label {
+        width: 100%;
+        margin-bottom: 5px;
     }
 }

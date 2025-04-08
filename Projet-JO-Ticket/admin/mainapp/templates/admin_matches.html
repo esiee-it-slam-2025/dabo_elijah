@@ -1,0 +1,306 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration des Matches - JO Tickets</title>
+    <link rel="stylesheet" href="{% static 'main.css' %}">
+    <style>
+        /* Variables CSS */
+        :root {
+            --primary-color: #2263A5;
+            --secondary-color: #E4003A;
+            --tertiary-color: #FFC72C;
+            --background-color: #f5f5f5;
+            --text-color: #333;
+            --light-color: #fff;
+            --dark-color: #222;
+            --gray-color: #ccc;
+            --success-color: #4CAF50;
+            --error-color: #F44336;
+        }
+
+        /* Styles globaux */
+        body {
+            font-family: 'Paris2024', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        /* En-tête */
+        .header {
+            background-color: var(--dark-color);
+            color: var(--light-color);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-title span {
+            margin-left: 0.5rem;
+        }
+
+        .logout-btn {
+            background-color: transparent;
+            color: var(--light-color);
+            border: 1px solid var(--light-color);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .logout-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Conteneur principal */
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* Titre de page */
+        .page-title {
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            color: var(--primary-color);
+        }
+
+        /* Formulaire des matchs */
+        .matches-form {
+            margin-bottom: 2rem;
+        }
+
+        .match-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .match-card {
+            background-color: var(--light-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 1rem;
+        }
+
+        .match-input-group {
+            margin-bottom: 1rem;
+        }
+
+        .match-input-group input,
+        .match-input-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid var(--gray-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .scores-container {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .scores-container input {
+            flex: 1;
+        }
+
+        /* Boutons */
+        .form-actions {
+            margin-top: 2rem;
+            text-align: right;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--light-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #1a4f85;
+        }
+
+        /* Messages */
+        .messages {
+            margin-bottom: 2rem;
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .message-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .message-error {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        /* Dates et symboles */
+        .date-input {
+            position: relative;
+        }
+
+        .date-input input {
+            padding-right: 2.5rem;
+        }
+
+        .date-input::after {
+            content: "📅";
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        /* Footer */
+        .footer {
+            background-color: var(--dark-color);
+            color: var(--light-color);
+            text-align: center;
+            padding: 1.5rem;
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <span>Administration des Matches</span>
+        </div>
+        <a href="{% url 'admin:logout' %}" class="logout-btn">
+            <span>🚪 Déconnexion</span>
+        </a>
+    </div>
+
+    <div class="container">
+        <h1 class="page-title">Liste des matches</h1>
+
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="message message-{{ message.tags }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" class="matches-form">
+            {% csrf_token %}
+            <div class="match-grid">
+                {% for event in events %}
+                <div class="match-card">
+                    <div class="match-input-group date-input">
+                        <input type="datetime-local" name="start_{{ event.id }}" value="{{ event.start|date:'Y-m-d\TH:i' }}" required>
+                    </div>
+                    
+                    <div class="match-input-group">
+                        <select name="team_home_{{ event.id }}">
+                            <option value="">-- Équipe domicile --</option>
+                            {% for team in teams %}
+                            <option value="{{ team.id }}" {% if event.team_home and team.id == event.team_home.id %}selected{% endif %}>{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="match-input-group">
+                        <select name="team_away_{{ event.id }}">
+                            <option value="">-- Équipe extérieure --</option>
+                            {% for team in teams %}
+                            <option value="{{ team.id }}" {% if event.team_away and team.id == event.team_away.id %}selected{% endif %}>{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="match-input-group scores-container">
+                        <input type="number" name="score_home_{{ event.id }}" placeholder="Score dom." min="0" value="{{ event.score_home|default:'' }}">
+                        <input type="number" name="score_away_{{ event.id }}" placeholder="Score ext." min="0" value="{{ event.score_away|default:'' }}">
+                    </div>
+                    
+                    <div class="match-input-group">
+                        <select name="stadium_{{ event.id }}" required>
+                            <option value="">-- Stade --</option>
+                            {% for stadium in stadiums %}
+                            <option value="{{ stadium.id }}" {% if stadium.id == event.stadium.id %}selected{% endif %}>{{ stadium.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <span>💾 Enregistrer les modifications</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2024 - Comité International Olympique</p>
+    </div>
+
+    <script>
+        // Script pour extraire les scores à partir du format "X-Y"
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for event in events %}
+            {% if event.score %}
+            const scoreHome{{ event.id }} = document.querySelector('input[name="score_home_{{ event.id }}"]');
+            const scoreAway{{ event.id }} = document.querySelector('input[name="score_away_{{ event.id }}"]');
+            
+            // Extraire les scores du format X-Y
+            const scoreMatch = "{{ event.score }}".split('-');
+            if (scoreMatch.length === 2) {
+                scoreHome{{ event.id }}.value = scoreMatch[0].trim();
+                scoreAway{{ event.id }}.value = scoreMatch[1].trim();
+            }
+            {% endif %}
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>

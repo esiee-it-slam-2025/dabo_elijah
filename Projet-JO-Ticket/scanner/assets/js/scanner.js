@@ -15,8 +15,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Instance du scanner
     let qrScanner = null;
 
-    // Configuration QR Scanner
-    QrScanner.WORKER_PATH = 'https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js';
+    // S'assurer que la library QR Scanner est bien chargée
+    console.log("QrScanner disponible:", typeof QrScanner !== 'undefined');
     
     // Démarrer la caméra
     startCameraButton.addEventListener('click', function() {
@@ -32,22 +32,33 @@ document.addEventListener('DOMContentLoaded', function() {
             qrScanner.stop();
         }
         
-        // Créer et démarrer le scanner
+        // Créer et démarrer le scanner avec une configuration plus souple
         qrScanner = new QrScanner(
             scannerVideo,
             result => {
+                console.log("QR détecté:", result);
                 // Arrêter le scanner
                 qrScanner.stop();
                 
                 // Traiter le résultat
-                console.log("QR détecté:", result.data);
                 processQRCode(result.data);
             },
             {
                 highlightScanRegion: true,
                 highlightCodeOutline: true,
                 returnDetailedScanResult: true,
-                preferredCamera: 'environment'
+                preferredCamera: 'environment',
+                // Augmenter la sensibilité du scanner
+                maxScansPerSecond: 5,
+                calculateScanRegion: (video) => {
+                    // Utiliser toute la surface
+                    return {
+                        x: 0,
+                        y: 0,
+                        width: video.videoWidth,
+                        height: video.videoHeight,
+                    };
+                }
             }
         );
         
@@ -64,6 +75,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const file = event.target.files[0];
         
         if (file) {
+            console.log("Fichier sélectionné:", file.name, file.type);
+            
             // Réinitialiser les résultats précédents
             ticketDetails.classList.add('hidden');
             errorMessage.classList.add('hidden');
@@ -78,42 +91,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Méthode simplifiée de lecture d'image
+            // Lecture plus robuste de l'image
             const reader = new FileReader();
+            
             reader.onload = function(e) {
+                console.log("Image chargée en base64");
+                
                 const img = new Image();
+                
                 img.onload = function() {
                     console.log("Image chargée, dimensions:", img.width, "x", img.height);
                     
-                    // Scanner l'image directement
-                    QrScanner.scanImage(img, { 
-                        returnDetailedScanResult: true,
-                        qrEngine: 'default'
-                    })
-                    .then(result => {
-                        console.log("QR détecté avec succès:", result.data);
+                    try {
+                        QrScanner.scanImage(img)
+                            .then(result => {
+                                console.log("QR détecté avec succès:", result);
+                                loadingIndicator.style.display = 'none';
+                                processQRCode(result);
+                            })
+                            .catch(error => {
+                                console.error('Erreur de scan:', error);
+                                loadingIndicator.style.display = 'none';
+                                showError('Aucun QR code détecté dans l\'image. Veuillez essayer avec une autre image.');
+                            });
+                    } catch (error) {
+                        console.error('Erreur pendant le scan:', error);
                         loadingIndicator.style.display = 'none';
-                        processQRCode(result.data);
-                    })
-                    .catch(error => {
-                        console.error('Premier essai échoué:', error);
-                        
-                        // Deuxième tentative avec un autre moteur
-                        QrScanner.scanImage(img, { 
-                            returnDetailedScanResult: true,
-                            qrEngine: 'worker'
-                        })
-                        .then(result => {
-                            console.log("QR détecté au second essai:", result.data);
-                            loadingIndicator.style.display = 'none';
-                            processQRCode(result.data);
-                        })
-                        .catch(err => {
-                            console.error('Tous les essais ont échoué:', err);
-                            loadingIndicator.style.display = 'none';
-                            showError('Aucun QR code détecté dans l\'image. Veuillez essayer avec une autre image ou utiliser la caméra.');
-                        });
-                    });
+                        showError('Erreur lors de l\'analyse de l\'image. Veuillez réessayer.');
+                    }
                 };
                 
                 img.onerror = function() {
@@ -125,13 +130,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 img.src = e.target.result;
             };
             
+            reader.onerror = function() {
+                console.error("Erreur lors de la lecture du fichier");
+                loadingIndicator.style.display = 'none';
+                showError('Erreur lors de la lecture du fichier.');
+            };
+            
             reader.readAsDataURL(file);
         }
     });
     
-    // Traiter le QR code
+    // Traiter le QR code avec gestion d'erreur améliorée
     function processQRCode(qrData) {
-        console.log("Traitement du QR code:", qrData);
+        console.log("Traitement du QR code brut:", qrData);
         
         // Afficher le chargement
         loadingIndicator.style.display = 'block';
@@ -141,20 +152,18 @@ document.addEventListener('DOMContentLoaded', function() {
         // Nettoyage des données
         qrData = qrData.trim();
         
-        // Vérifier si les données du QR code ressemblent à un UUID
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(qrData)) {
-            console.error('QR code non valide (format UUID attendu):', qrData);
-            loadingIndicator.style.display = 'none';
-            showError('QR code invalide. Ce n\'est pas un billet valide.');
-            return;
-        }
+        console.log("QR data après nettoyage:", qrData);
         
         // Appeler l'API pour vérifier le billet
         fetch(`${API_BASE_URL}/getInfo/${qrData}`)
             .then(response => {
+                console.log("Réponse API:", response.status);
                 if (!response.ok) {
-                    throw new Error('Billet invalide ou introuvable');
+                    if (response.status === 404) {
+                        throw new Error('Billet introuvable');
+                    } else {
+                        throw new Error('Erreur serveur: ' + response.status);
+                    }
                 }
                 return response.json();
             })
@@ -312,7 +321,6 @@ document.addEventListener('DOMContentLoaded', function() {
         errorMessage.classList.remove('hidden');
     }
     
-    // Ajouter des styles CSS pour la notification de succès
     const style = document.createElement('style');
     style.textContent = `
         .success-notification {
@@ -327,7 +335,6 @@ document.addEventListener('DOMContentLoaded', function() {
             z-index: 1000;
             animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
         }
-            }
         
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
@@ -347,9 +354,5 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.head.appendChild(style);
     
-    // Ajouter des logs console supplémentaires pour le débogage
     console.log("Scanner de billets initialisé");
 });
-        
-        
-            

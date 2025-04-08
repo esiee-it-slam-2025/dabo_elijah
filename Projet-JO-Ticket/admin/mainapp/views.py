@@ -1,8 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
+from django.contrib import messages
 from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -34,8 +36,10 @@ def serialize_event(event):
         'id': event.id,
         'start': event.start.isoformat(),
         'stadium': serialize_stadium(event.stadium),
-        'team_home': serialize_team(event.team_home),
-        'team_away': serialize_team(event.team_away),
+        'team_home': serialize_team(event.team_home) if event.team_home else None,
+        'team_away': serialize_team(event.team_away) if event.team_away else None,
+        'score': event.score,  # Ajout du score
+        'winner': serialize_team(event.winner) if event.winner else None  # Ajout du vainqueur
     }
 # Fonction utilitaire pour sérialiser un objet User
 def serialize_user(user):
@@ -145,6 +149,93 @@ def login_view(request):
             return Response({'message': 'Email ou mot de passe incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
     except Exception as e:
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# Vérifier si l'utilisateur est un superutilisateur
+def is_superuser(user):
+    return user.is_superuser
+
+@login_required
+@user_passes_test(is_superuser)
+def match_admin(request):
+    events = Event.objects.all().order_by('start')
+    teams = Team.objects.all().order_by('name')
+    stadiums = Stadium.objects.all()
+    
+    if request.method == 'POST':
+        # Sauvegarde d'un seul événement
+        if 'save_event' in request.POST:
+            event_id = request.POST.get('save_event')
+            update_event(request, event_id)
+            messages.success(request, f'Match #{event_id} mis à jour avec succès.')
+            return redirect('match_admin')
+        
+        # Sauvegarde de tous les événements
+        elif 'save_all' in request.POST:
+            for event in events:
+                update_event(request, event.id)
+            messages.success(request, 'Tous les matchs ont été mis à jour avec succès.')
+            return redirect('match_admin')
+    
+    return render(request, 'admin/match_admin.html', {
+        'events': events,
+        'teams': teams,
+        'stadiums': stadiums,
+    })
+
+def update_event(request, event_id):
+    try:
+        event = Event.objects.get(id=event_id)
+        
+        # Mise à jour de la date et heure
+        datetime_str = request.POST.get(f'datetime_{event_id}')
+        if datetime_str:
+            from django.utils import timezone
+            import datetime
+            # Convertir la chaîne datetime en objet datetime
+            event.start = datetime.datetime.strptime(datetime_str, '%Y-%m-%dT%H:%M')
+            # Si on utilise TIME_ZONE dans settings, s'assurer qu'on est en UTC
+            # event.start = timezone.make_aware(event.start)
+        
+        # Mise à jour des équipes
+        team_home_id = request.POST.get(f'team_home_{event_id}')
+        if team_home_id:
+            event.team_home_id = team_home_id
+        else:
+            event.team_home = None
+            
+        team_away_id = request.POST.get(f'team_away_{event_id}')
+        if team_away_id:
+            event.team_away_id = team_away_id
+        else:
+            event.team_away = None
+        
+        # Mise à jour du score
+        score_home = request.POST.get(f'score_home_{event_id}')
+        score_away = request.POST.get(f'score_away_{event_id}')
+        if score_home and score_away:
+            event.score = f"{score_home}-{score_away}"
+            
+            # Déterminer le vainqueur
+            if int(score_home) > int(score_away):
+                event.winner = event.team_home
+            elif int(score_away) > int(score_home):
+                event.winner = event.team_away
+            else:
+                event.winner = None
+        else:
+            event.score = None
+            event.winner = None
+        
+        # Mise à jour du stade
+        stadium_id = request.POST.get(f'stadium_{event_id}')
+        if stadium_id:
+            event.stadium_id = stadium_id
+        
+        event.save()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la mise à jour du match #{event_id}: {str(e)}")
+        return False
 
 # API: Déconnexion utilisateur
 @api_view(['POST'])

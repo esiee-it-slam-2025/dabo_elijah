@@ -20,11 +20,13 @@ class Team(models.Model):
 class Event(models.Model):
     start = models.DateTimeField()
     stadium = models.ForeignKey(Stadium, on_delete=models.CASCADE)
-    team_home = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='home_events')
-    team_away = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='away_events')
+    team_home = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='home_events', null=True, blank=True)
+    team_away = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='away_events', null=True, blank=True)
     
     def __str__(self):
-        return f"{self.team_home.name} vs {self.team_away.name} - {self.start.strftime('%d/%m/%Y %H:%M')}"
+        home_name = self.team_home.name if self.team_home else "À déterminer"
+        away_name = self.team_away.name if self.team_away else "À déterminer"
+        return f"{home_name} vs {away_name} - {self.start.strftime('%d/%m/%Y %H:%M')}"
 
 class Ticket(models.Model):
     CATEGORY_CHOICES = [
@@ -45,7 +47,6 @@ class Ticket(models.Model):
         return f"Ticket {self.id} - {self.user.username} - {self.event}"
     
     def save(self, *args, **kwargs):
-        # Set price based on category if not already set
         if not self.price:
             if self.category == 'SILVER':
                 self.price = 100

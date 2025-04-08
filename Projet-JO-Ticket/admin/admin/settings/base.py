@@ -26,9 +26,9 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:5500",  # Adresse URL local sur le port liveserver
+    "http://127.0.0.1:5500",
 ]
 ALLOWED_HOSTS = [
-    '127.0.0.1',  # Pour les tests en local
+    '127.0.0.1',
     'localhost',
 ]

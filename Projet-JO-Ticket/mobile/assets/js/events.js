@@ -1,10 +1,8 @@
-// Assurez-vous que cette fonction existe dans events.js
 async function displayEvents() {
     const eventsListElement = document.getElementById('events-list');
     
     try {
         // Récupérer les données des événements
-        // Utilisez fetchAPI au lieu de getEvents si getEvents n'existe plus
         const events = await fetchAPI('/events/');
         
         // Vider le conteneur
@@ -86,6 +84,12 @@ async function displayEvents() {
             const homeFlag = getCountryFlag(event.team_home.code);
             const awayFlag = getCountryFlag(event.team_away.code);
             
+            // Afficher le score si disponible
+            let scoreInfo = '';
+            if (event.score) {
+                scoreInfo = `<div class="event-score">Score: ${event.score}</div>`;
+            }
+            
             card.innerHTML = `
                 <div class="event-header">
                     <h3>${phaseName} - Match #${event.id}</h3>
@@ -103,6 +107,7 @@ async function displayEvents() {
                         <div class="team-code">${event.team_away.code}</div>
                     </div>
                 </div>
+                ${scoreInfo}
                 <div class="event-details">
                     <div class="event-detail">
                         <span class="detail-icon">📅</span>

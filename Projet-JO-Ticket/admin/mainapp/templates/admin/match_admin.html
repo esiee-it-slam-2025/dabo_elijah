@@ -1,21 +1,6 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="fr">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="stylesheet" href="{% static 'main.css' %}" />
-		<title>JO Admin</title>
-	</head>
-	<body>
-		<header></header>
-		<main>{% block content %} {% endblock %}</main>
-		<footer></footer>
-	</body>
-</html>
-
 {% extends "admin/base_site.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block title %}Administration des Matches{% endblock %}
 
@@ -137,11 +122,17 @@
                 </div>
                 
                 <div class="score-input">
-                    <input type="number" name="score_home_{{ event.id }}" min="0" max="99" 
-                           value="{% if event.score %}{{ event.score.split('-')[0] }}{% endif %}">
-                    <span>-</span>
-                    <input type="number" name="score_away_{{ event.id }}" min="0" max="99"
-                           value="{% if event.score %}{{ event.score.split('-')[1] }}{% endif %}">
+                    {% if event.score %}
+                        {% with score_parts=event.score|default:"0-0"|stringformat:"s"|split:"-" %}
+                            <input type="number" name="score_home_{{ event.id }}" min="0" max="99" value="{{ score_parts.0|default:"0" }}">
+                            <span>-</span>
+                            <input type="number" name="score_away_{{ event.id }}" min="0" max="99" value="{{ score_parts.1|default:"0" }}">
+                        {% endwith %}
+                    {% else %}
+                        <input type="number" name="score_home_{{ event.id }}" min="0" max="99" value="0">
+                        <span>-</span>
+                        <input type="number" name="score_away_{{ event.id }}" min="0" max="99" value="0">
+                    {% endif %}
                 </div>
                 
                 <label for="stadium_{{ event.id }}">Stade:</label>

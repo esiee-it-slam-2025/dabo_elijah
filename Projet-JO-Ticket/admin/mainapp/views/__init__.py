@@ -13,7 +13,9 @@ from .api import (
     validate_ticket
 )
 
-# Assurez-vous que toutes les vues sont accessibles
+# Import des vues d'administration
+from .admin_views import admin_matches
+
 __all__ = [
     'get_csrf_token',
     'stadiums_list',
@@ -25,5 +27,6 @@ __all__ = [
     'buy_ticket',
     'user_tickets',
     'get_ticket_info',
-    'validate_ticket'
+    'validate_ticket',
+    'admin_matches'
 ]

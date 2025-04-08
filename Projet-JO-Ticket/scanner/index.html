@@ -5,9 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JO Tickets - Scanner</title>
     <link rel="stylesheet" href="assets/css/styles.css">
-    <!-- Mise à jour vers la dernière version de QR Scanner -->
-    <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner-worker.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        #canvas {
+            display: none;
+        }
+        
+        #loadingMessage {
+            text-align: center;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        #output {
+            margin-top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -33,25 +51,22 @@
                 </div>
             </div>
             
-            <div id="scanner-area" class="scanner-area">
+            <div id="scanner-area" class="scanner-area" style="display: none;">
                 <video id="scanner-video"></video>
-                <div class="scanner-overlay">
-                    <div class="scanner-border"></div>
-                </div>
+                <canvas id="canvas"></canvas>
+                <div id="loadingMessage">⌛ Chargement de la caméra...</div>
             </div>
             
             <div id="result-container" class="result-container">
-                <div class="loading-indicator" id="loading-indicator">
+                <div class="loading-indicator" id="loading-indicator" style="display: none;">
                     <div class="spinner"></div>
                     <p>Vérification du billet...</p>
                 </div>
                 
                 <div id="ticket-details" class="ticket-details hidden">
-                    <!-- Les détails du billet seront affichés ici -->
                 </div>
                 
                 <div id="error-message" class="error-message hidden">
-                    <!-- Les messages d'erreur seront affichés ici -->
                 </div>
             </div>
         </div>
@@ -61,6 +76,286 @@
         <p>&copy; 2024 - Comité International Olympique</p>
     </footer>
 
-    <script src="assets/js/scanner.js"></script>
+    <script>
+        // Configuration de l'API
+        const API_BASE_URL = 'http://127.0.0.1:8000/api';
+        
+        // Éléments DOM
+        const startCameraButton = document.getElementById('start-camera');
+        const fileInput = document.getElementById('qr-file-input');
+        const scannerArea = document.getElementById('scanner-area');
+        const video = document.getElementById('scanner-video');
+        const canvas = document.getElementById('canvas');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const resultContainer = document.getElementById('result-container');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const ticketDetails = document.getElementById('ticket-details');
+        const errorMessage = document.getElementById('error-message');
+        
+        // Variables globales
+        let scanning = false;
+        
+        // Démarrage de la caméra
+        startCameraButton.addEventListener('click', function() {
+            // Afficher la zone de scan
+            scannerArea.style.display = 'block';
+            
+            // Cacher les résultats précédents
+            ticketDetails.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            
+            // Initialiser la caméra
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: "environment",
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                } 
+            })
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true); // Requis pour iOS
+                video.play();
+                requestAnimationFrame(tick);
+            })
+            .catch(function(err) {
+                scannerArea.style.display = 'none';
+                showError('Impossible d\'accéder à la caméra. Veuillez vérifier vos permissions ou utiliser le chargement d\'image.');
+                console.error(err);
+            });
+        });
+        
+        // Traitement des images de la caméra
+        function tick() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                loadingMessage.style.display = "none";
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                try {
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert",
+                    });
+                    
+                    if (code && code.data) {
+                        // QR code trouvé
+                        console.log("QR Code détecté:", code.data);
+                        
+                        // Arrêter le scan
+                        if (video.srcObject) {
+                            video.srcObject.getTracks().forEach(track => track.stop());
+                        }
+                        
+                        // Traiter le code
+                        processQRCode(code.data);
+                        
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Erreur lors de l'analyse du QR code:", e);
+                }
+            }
+            
+            // Continuer le scan
+            requestAnimationFrame(tick);
+        }
+        
+        // Traitement des images téléchargées
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // Dessiner l'image sur le canvas
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        // Analyser l'image
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        try {
+                            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                                inversionAttempts: "dontInvert",
+                            });
+                            
+                            if (code && code.data) {
+                                // QR code trouvé
+                                console.log("QR Code détecté dans l'image:", code.data);
+                                processQRCode(code.data);
+                            } else {
+                                showError('Aucun QR code détecté dans l\'image.');
+                            }
+                        } catch (e) {
+                            console.error("Erreur lors de l'analyse du QR code:", e);
+                            showError('Erreur lors de l\'analyse de l\'image.');
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Traiter le QR code
+        function processQRCode(qrData) {
+            console.log("Traitement du QR code:", qrData);
+            
+            // Afficher le chargement
+            loadingIndicator.style.display = 'block';
+            ticketDetails.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            
+            // Nettoyer les données
+            qrData = qrData.trim();
+            
+            // Appeler l'API
+            fetch(`${API_BASE_URL}/getInfo/${qrData}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(response.status === 404 ? 'Billet introuvable' : 'Erreur serveur');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loadingIndicator.style.display = 'none';
+                    displayTicketDetails(data);
+                    
+                    if (!data.is_used) {
+                        addValidateButton(data.id);
+                    }
+                })
+                .catch(error => {
+                    loadingIndicator.style.display = 'none';
+                    showError(error.message);
+                });
+        }
+        
+        // Afficher les détails du billet
+        function displayTicketDetails(ticket) {
+            const eventDate = new Date(ticket.event.start);
+            
+            let statusClass = ticket.is_used ? 'status-invalid' : 'status-valid';
+            let statusText = ticket.is_used ? 'BILLET DÉJÀ UTILISÉ' : 'BILLET VALIDE';
+            
+            ticketDetails.innerHTML = `
+                <div class="ticket-header">
+                    <h3>Billet #${ticket.id.substring(0, 8)}...</h3>
+                </div>
+                <div class="ticket-body">
+                    <div class="ticket-info">
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Événement:</div>
+                            <div class="ticket-info-value">Match #${ticket.event.id}</div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Équipes:</div>
+                            <div class="ticket-info-value">${ticket.event.team_home.name} vs ${ticket.event.team_away.name}</div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Date:</div>
+                            <div class="ticket-info-value">${eventDate.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Heure:</div>
+                            <div class="ticket-info-value">${eventDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Stade:</div>
+                            <div class="ticket-info-value">${ticket.event.stadium.name}, ${ticket.event.stadium.location}</div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Catégorie:</div>
+                            <div class="ticket-info-value">
+                                <span class="ticket-category category-${ticket.category.toLowerCase()}">${ticket.category}</span>
+                            </div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Propriétaire:</div>
+                            <div class="ticket-info-value">${ticket.user.username}</div>
+                        </div>
+                        <div class="ticket-info-row">
+                            <div class="ticket-info-label">Date d'achat:</div>
+                            <div class="ticket-info-value">${new Date(ticket.purchase_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="ticket-status ${statusClass}">
+                        ${statusText}
+                    </div>
+                    
+                    <div id="validate-button-container" class="validate-button-container">
+                        <!-- Le bouton de validation sera ajouté ici si le billet est valide -->
+                    </div>
+                </div>
+            `;
+            
+            ticketDetails.classList.remove('hidden');
+        }
+        
+        // Ajouter un bouton de validation pour les billets valides
+        function addValidateButton(ticketId) {
+            const validateButtonContainer = document.getElementById('validate-button-container');
+            
+            if (validateButtonContainer) {
+                validateButtonContainer.innerHTML = `
+                    <button id="validate-button" class="btn btn-primary">Valider ce billet</button>
+                `;
+                
+                document.getElementById('validate-button').addEventListener('click', function() {
+                    validateTicket(ticketId);
+                });
+            }
+        }
+        
+        // Valider un billet
+        function validateTicket(ticketId) {
+            loadingIndicator.style.display = 'block';
+            
+            fetch(`${API_BASE_URL}/validateTicket/${ticketId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erreur lors de la validation du billet');
+                }
+                return response.json();
+            })
+            .then(data => {
+                loadingIndicator.style.display = 'none';
+                displayTicketDetails(data.ticket);
+                
+                const successNotification = document.createElement('div');
+                successNotification.className = 'success-notification';
+                successNotification.textContent = 'Billet validé avec succès!';
+                
+                document.body.appendChild(successNotification);
+                
+                setTimeout(() => {
+                    document.body.removeChild(successNotification);
+                }, 3000);
+            })
+            .catch(error => {
+                loadingIndicator.style.display = 'none';
+                showError(error.message);
+            });
+        }
+        
+        // Afficher une erreur
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+    </script>
 </body>
 </html>

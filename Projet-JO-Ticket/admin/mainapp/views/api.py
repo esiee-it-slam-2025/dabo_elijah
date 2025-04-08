@@ -39,6 +39,8 @@ def serialize_event(event):
         'stadium': serialize_stadium(event.stadium),
         'team_home': serialize_team(event.team_home) if event.team_home else None,
         'team_away': serialize_team(event.team_away) if event.team_away else None,
+        'score': event.score,
+        'winner': serialize_team(event.winner) if event.winner else None
     }
 
 # Fonction utilitaire pour sérialiser un objet User
@@ -291,14 +293,17 @@ def user_tickets(request):
 # API: Informations sur un billet spécifique
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def get_ticket_info(request, ticket_id):
+def get_ticket_info(request, ticket_id_part):
     try:
-        ticket = get_object_or_404(Ticket, id=ticket_id)
+        # Recherche le billet par les premiers caractères de l'UUID
+        ticket = Ticket.objects.filter(id__startswith=ticket_id_part).first()
+        if not ticket:
+            return Response({'message': 'Billet introuvable'}, status=status.HTTP_404_NOT_FOUND)
+        
         return Response(serialize_ticket(ticket))
     except Exception as e:
-        print(f"Erreur d'information sur le billet: {str(e)}")
-        print(traceback.format_exc())
         return Response({'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 # API: Valider un billet (marquer comme utilisé)
 @api_view(['POST'])
